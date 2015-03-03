@@ -88,7 +88,7 @@ clean:
 	-@echo ' '
 
 install: $(HEX)
-	$(AVRDUDE) -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -v -U flash:w:$(HEX)
+	$(AVRDUDE) -B 1 -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -v -U flash:w:$(HEX)
 	
 fuses:
 	$(AVRDUDE) -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -v -U lfuse:w:$(LFUSE):m -U hfuse:w:$(HFUSE):m -U efuse:w:$(EFUSE):m

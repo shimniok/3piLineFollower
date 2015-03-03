@@ -1,0 +1,10 @@
+*.o
+*.lss
+*.eep
+*.hex
+*.elf
+*.map
+.cproject
+.project
+.settings
+Release

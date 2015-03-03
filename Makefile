@@ -2,14 +2,29 @@
 
 PROJ = 3piLine
 
-CC = avr-gcc
+# MCU Settings
+MCU = atmega328p 
+LFUSE = F6
+HFUSE = D9
+EFUSE = 04
+
+# Programmer
+# Dragon
+PROGRAMMER = dragon_isp
+PORT = usb
+
 SRCS = main.c
-OBJS = main.o
 LIBDIR = -L/usr/local/pololu/lib
 CFLAGS = -I/usr/local/pololu/include
-LIBS = -lpololu_atmega328p
+CFLAGS += -fdata-sections -ffunction-sections
+LIBS = -lpololu_$(MCU)
+LDFLAGS += -Wl,-gc-sections
 
+CC = avr-gcc
+AVRDUDE = avrdude
 RM := rm -rf
+
+OBJS = $(patsubst %.c,%.o, $(SRCS))
 
 # Dependencies
 
@@ -39,7 +54,7 @@ all: $(ELF) secondary-outputs
 $(ELF): $(OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AVR C Linker'
-	$(CC) -Wl,-Map,$(MAP) -mmcu=atmega328p -o $(ELF) $(OBJS) $(USER_OBJS) $(LIBS) $(LIBDIR)
+	$(CC) -Wl,-Map,$(MAP) $(LDFLAGS) -mmcu=$(MCU) -o $(ELF) $(OBJS) $(USER_OBJS) $(LIBS) $(LIBDIR)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -69,8 +84,14 @@ sizedummy: $(ELF)
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(EEP)$(HEX)$(ELF)$(LSS)$(MAP)$(SIZEDUMMY)
+	-$(RM) $(OBJS) $(EEP) $(HEX) $(ELF) $(LSS) $(MAP) $(SIZEDUMMY)
 	-@echo ' '
+
+install: $(HEX)
+	$(AVRDUDE) -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -v -U flash:w:$(HEX)
+	
+fuses:
+	$(AVRDUDE) -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -v -U lfuse:w:$(LFUSE):m -U hfuse:w:$(HFUSE):m -U efuse:w:$(EFUSE):m
 
 secondary-outputs: $(LSS) $(HEX) $(EEP) $(SIZEDUMMY)
 
@@ -78,5 +99,5 @@ secondary-outputs: $(LSS) $(HEX) $(EEP) $(SIZEDUMMY)
 .SECONDARY:
 
 .c.o: 
-	$(CC) -c $(CFLAGS) -mmcu=atmega328p $< -o $@
+	$(CC) -c $(CFLAGS) -mmcu=$(MCU) $< -o $@
 	

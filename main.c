@@ -8,58 +8,65 @@
 #include <avr/io.h>
 #include "Pololu3pi.h"
 
-#define SPEED 40
-#define STEER3 30
-#define STEER1 15
-#define THRESH 300
-#define DT 50 // time step in ms, at least 2ms to be safe
+////////////////////////////////////////////////////////////////////////
+// Configuration
+#define SPEED 60
+#define MAXSTEER 30		// Maximum change in motor speed for steering
+#define DT 10			// time step in ms, at least 2ms to be safe
 
 // Data for generating the characters used in load_custom_characters
-// and display_readings.  By reading levels[] starting at various
+// and bargraph_sensors.  By reading levels[] starting at various
 // offsets, we can generate all of the 7 extra characters needed for a
 // bargraph.  This is also stored in program space.
-const char levels[] PROGMEM = { 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
-		0b00000, 0b00000, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111,
-		0b11111 };
+const char levels[] PROGMEM = { 
+	0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 
+	0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111 
+};
 
 // 10 levels of bar graph characters
 const char bar_graph_characters[10] = { ' ', 0, 0, 1, 2, 3, 3, 4, 5, 255 };
 
+unsigned int sensors[5];
+
 void init();
-void calibrate();
 void line_follow();
 void load_custom_characters();
 void bargraph_sensors(unsigned int sensors[5]);
 
 unsigned char button;
 
+////////////////////////////////////////////////////////////////////////
+// Main routine
 int main() {
 
 	init();
 
-	clear();
-	lcd_goto_xy(0, 0); // top left
-	print("3piLine");
-	delay_ms(2000);
+    // Display calibrated values as a bar graph.
+    while(!button_is_pressed(BUTTON_B)) {
+        // Read the sensor values and get the position measurement.
+        unsigned int position = read_line(sensors,IR_EMITTERS_ON);
+ 
+        // Display the position measurement, which will go from 0
+        // (when the leftmost sensor is over the line) to 4000 (when
+        // the rightmost sensor is over the line) on the 3pi, along
+        // with a bar graph of the sensor readings.  This allows you
+        // to make sure the robot is ready to go.
+        clear();
+        print_long(position);
+        lcd_goto_xy(0,1);
+        bargraph_sensors(sensors);
+ 
+        delay_ms(100);
+    }
+    wait_for_button_release(BUTTON_B);
+    
+    delay_ms(200);
 
-	// loop, repeatedly get ready to run, then run
-	while (1) {
-		clear();
-		lcd_goto_xy(0, 0); // top left
-		print("Calib:A");
-		lcd_goto_xy(0, 1); // bottom left
-		print("Start:B");
-		// wait for button press
-		do {
-			button = get_single_debounced_button_press(ANY_BUTTON);
-		} while (button == 0);
-		if (button & BUTTON_A)
-			calibrate();
-		else if (button & BUTTON_B)
-			line_follow();
-	}
-}
+	line_follow();
+	
+ }
 
+////////////////////////////////////////////////////////////////////////
 // Initialize everything
 void init() {
 	pololu_3pi_init_disable_emitter_pin(2000); // should be 500-3000usec
@@ -67,24 +74,57 @@ void init() {
 	clear(); // clear LCD
 	lcd_goto_xy(0, 0); // top left
 	print("3piLine");
+	
+    // Display battery voltage and wait for button press
+    while(!button_is_pressed(BUTTON_B))
+    {
+        int bat = read_battery_millivolts();
+ 
+        clear();
+        print_long(bat);
+        print("mV");
+        lcd_goto_xy(0,1);
+        print("Press B");
+ 
+        delay_ms(100);
+    }
+	
+   // Always wait for the button to be released so that 3pi doesn't
+    // start moving until your hand is away from it.
+    wait_for_button_release(BUTTON_B);
+    delay_ms(1000);
+    
+    int counter;
+ 
+    // Auto-calibration: turn right and left while calibrating the
+    // sensors.
+    for (counter = 0; counter < 80; counter++) {
+		
+        if (counter < 20 || counter >= 60) {
+            set_motors(40,-40);
+        } else {
+            set_motors(-40,40);
+		}
+ 
+        // This function records a set of sensor readings and keeps
+        // track of the minimum and maximum values encountered.  The
+        // IR_EMITTERS_ON argument means that the IR LEDs will be
+        // turned on during the reading, which is usually what you
+        // want.
+        calibrate_line_sensors(IR_EMITTERS_ON);
+ 
+        // Since our counter runs to 80, the total delay will be
+        // 80*20 = 1600 ms.
+        delay_ms(20);
+    }
+    set_motors(0,0);	
 }
 
-void calibrate() {
-	int i;
 
-	lcd_goto_xy(0, 0); // bottom left
-	print("cal... ");
-	// Calibrate sensors
-	for (i = 0; i < 250; i++) { // make the calibration take about 5 seconds
-		calibrate_line_sensors(IR_EMITTERS_ON); // calibrate with LEDs on
-		delay(20);
-	}
-}
-
+////////////////////////////////////////////////////////////////////////
 // This function performs a single step of line following
 //
 void line_follow() {
-	unsigned int sensors[5];
 	long now = 0;
 	long when;
 
@@ -99,32 +139,39 @@ void line_follow() {
 
 		if (now >= when) { // rollover every ~49 days
 			when = now + DT;
-			// Read Sensors
-			read_line(sensors, IR_EMITTERS_ON);
 
-			if (sensors[0] > THRESH) {
-				set_motors(SPEED-STEER3, SPEED+STEER3);
-			} else if (sensors[4] > THRESH) {
-				set_motors(SPEED+STEER3, SPEED-STEER3);
-			} else if (sensors[3] > THRESH) {
-				set_motors(SPEED+STEER1, SPEED-STEER1);
-			} else if (sensors[1] > THRESH) {
-				set_motors(SPEED-STEER1, SPEED+STEER1);
+			// Read Sensors (2000 is the center, so offset the reading)
+			int position = read_line(sensors, IR_EMITTERS_ON) - 2000;
+
+			if (position < -1000) {
+				// We're way off the line to the left, so steer hard right
+				set_motors(SPEED, 0);
+			} else if (position > 1000) {
+				// We're way off the line to the right, so steer hard left
+				set_motors(0,SPEED);
 			} else {
-				set_motors(SPEED, SPEED);
+				// We're in the ball park so use PID loop
+
+				// Proportional
+				int steer = (position * MAXSTEER) / 1000;
+		
+				set_motors(SPEED+steer,SPEED-steer);
+				left_led(1);
+				right_led(1);
 			}
 
 			bargraph_sensors(sensors);
 			button = get_single_debounced_button_press(ANY_BUTTON);
-			if (button & BUTTON_B)
-				break;
-			delay_ms(1);
+			delay_ms(1); // ensure we don't run twice.
 		}
 	}
 	set_motors(0,0);
 	emitters_off();
 }
 
+////////////////////////////////////////////////////////////////////////
+// Display bargraph
+//
 void bargraph_sensors(unsigned int sensors[5]) {
 	unsigned int i;
 	lcd_goto_xy(0,1);
@@ -146,8 +193,10 @@ void bargraph_sensors(unsigned int sensors[5]) {
 	print_character(']');
 }
 
+////////////////////////////////////////////////////////////////////////
 // This function loads custom characters into the LCD.  Up to 8
 // characters can be loaded; we use them for 6 levels of a bar graph
+//
 void load_custom_characters() {
 	lcd_load_custom_character(levels + 0, 0); // no offset, e.g. one bar
 	lcd_load_custom_character(levels + 1, 1); // two bars

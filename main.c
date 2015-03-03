@@ -10,8 +10,8 @@
 
 ////////////////////////////////////////////////////////////////////////
 // Configuration
-#define SPEED 60
-#define MAXSTEER 30		// Maximum change in motor speed for steering
+#define SPEED 40		// speed for each motor
+#define MAXSTEER 40		// maximum steering correction
 #define DT 10			// time step in ms, at least 2ms to be safe
 
 // Data for generating the characters used in load_custom_characters
@@ -144,17 +144,17 @@ void line_follow() {
 			int position = read_line(sensors, IR_EMITTERS_ON) - 2000;
 
 			if (position < -1000) {
-				// We're way off the line to the left, so steer hard right
-				set_motors(SPEED, 0);
+				// We're way off the line to the left, so steer hard left
+				set_motors(0, SPEED);
 			} else if (position > 1000) {
-				// We're way off the line to the right, so steer hard left
-				set_motors(0,SPEED);
+				// We're way off the line to the right, so steer hard right
+				set_motors(SPEED, 0);
 			} else {
 				// We're in the ball park so use PID loop
 
-				// Proportional
+				// Proportional - steer up to maximum speed
 				int steer = (position * MAXSTEER) / 1000;
-		
+
 				set_motors(SPEED+steer,SPEED-steer);
 				left_led(1);
 				right_led(1);

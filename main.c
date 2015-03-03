@@ -40,31 +40,32 @@ unsigned char button;
 int main() {
 
 	init();
-
-    // Display calibrated values as a bar graph.
-    while(!button_is_pressed(BUTTON_B)) {
-        // Read the sensor values and get the position measurement.
-        unsigned int position = read_line(sensors,IR_EMITTERS_ON);
- 
-        // Display the position measurement, which will go from 0
-        // (when the leftmost sensor is over the line) to 4000 (when
-        // the rightmost sensor is over the line) on the 3pi, along
-        // with a bar graph of the sensor readings.  This allows you
-        // to make sure the robot is ready to go.
-        clear();
-        print_long(position);
-        lcd_goto_xy(0,1);
-        bargraph_sensors(sensors);
- 
-        delay_ms(100);
-    }
-    wait_for_button_release(BUTTON_B);
-    
-    delay_ms(200);
-
-	line_follow();
 	
- }
+	while (1) {
+		// Display calibrated values as a bar graph.
+		while(!button_is_pressed(BUTTON_B)) {
+			// Read the sensor values and get the position measurement.
+			unsigned int position = read_line(sensors,IR_EMITTERS_ON);
+	 
+			// Display the position measurement, which will go from 0
+			// (when the leftmost sensor is over the line) to 4000 (when
+			// the rightmost sensor is over the line) on the 3pi, along
+			// with a bar graph of the sensor readings.  This allows you
+			// to make sure the robot is ready to go.
+			clear();
+			print_long(position);
+			lcd_goto_xy(0,1);
+			bargraph_sensors(sensors);
+	 
+			delay_ms(100);
+		}
+		wait_for_button_release(BUTTON_B);		
+		delay_ms(200);
+
+		line_follow();
+	} // while
+
+} // main
 
 ////////////////////////////////////////////////////////////////////////
 // Initialize everything
@@ -129,12 +130,10 @@ void line_follow() {
 	long when;
 
 	clear();
-	lcd_goto_xy(0, 0); // top left
-	print("GO!");
 	// do the run
 	time_reset(); // rollover every ~49 days
 	when = get_ms() + DT;
-	while (1) {
+	while(!button_is_pressed(BUTTON_B)) {	
 		now = get_ms();
 
 		if (now >= when) { // rollover every ~49 days
@@ -144,24 +143,30 @@ void line_follow() {
 			long position = read_line(sensors, IR_EMITTERS_ON);
 
 			// Proportional - steer up to maximum speed
-			long steer = (position * MAXSTEER) / 1000 - 2*MAXSTEER;
+			// position ranges from 0 to 4000. The most reliable range
+			// is 1000 to 3000. We adjust P to get us to MAXSTEER at
+			// least by the time we hit the edge of this range.
+			long steer = (position * 40) / 1000 - 80;
 
-			// Threshold the steering
+			// Limit the steering to the maximum +/- value
 			if (steer > MAXSTEER) steer = MAXSTEER;
 			if (steer < -MAXSTEER) steer = -MAXSTEER;
 
 			set_motors(SPEED+steer, SPEED-steer);
 
+			lcd_goto_xy(0,0);
 			print_long(position);
 			lcd_goto_xy(0,1);	
 			bargraph_sensors(sensors);
 			
 			button = get_single_debounced_button_press(ANY_BUTTON);
 			delay_ms(1); // ensure we don't run twice.
-		}
-	}
+		} // if
+
+	} // while
 	set_motors(0,0);
 	emitters_off();
+	wait_for_button_release(BUTTON_B);
 }
 
 ////////////////////////////////////////////////////////////////////////

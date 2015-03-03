@@ -12,7 +12,7 @@
 // Configuration
 #define SPEED 40		// speed for each motor
 #define MAXSTEER 40		// maximum steering correction
-#define DT 10			// time step in ms, at least 2ms to be safe
+#define DT 50			// time step in ms, at least 2ms to be safe
 
 // Data for generating the characters used in load_custom_characters
 // and bargraph_sensors.  By reading levels[] starting at various
@@ -140,27 +140,22 @@ void line_follow() {
 		if (now >= when) { // rollover every ~49 days
 			when = now + DT;
 
-			// Read Sensors (2000 is the center, so offset the reading)
-			int position = read_line(sensors, IR_EMITTERS_ON) - 2000;
+			// Read Sensors
+			long position = read_line(sensors, IR_EMITTERS_ON);
 
-			if (position < -1000) {
-				// We're way off the line to the left, so steer hard left
-				set_motors(0, SPEED);
-			} else if (position > 1000) {
-				// We're way off the line to the right, so steer hard right
-				set_motors(SPEED, 0);
-			} else {
-				// We're in the ball park so use PID loop
+			// Proportional - steer up to maximum speed
+			long steer = (position * MAXSTEER) / 1000 - 2*MAXSTEER;
 
-				// Proportional - steer up to maximum speed
-				int steer = (position * MAXSTEER) / 1000;
+			// Threshold the steering
+			if (steer > MAXSTEER) steer = MAXSTEER;
+			if (steer < -MAXSTEER) steer = -MAXSTEER;
 
-				set_motors(SPEED+steer,SPEED-steer);
-				left_led(1);
-				right_led(1);
-			}
+			set_motors(SPEED+steer, SPEED-steer);
 
+			print_long(position);
+			lcd_goto_xy(0,1);	
 			bargraph_sensors(sensors);
+			
 			button = get_single_debounced_button_press(ANY_BUTTON);
 			delay_ms(1); // ensure we don't run twice.
 		}

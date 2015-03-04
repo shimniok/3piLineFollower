@@ -12,7 +12,7 @@
 // Configuration
 #define SPEED 40		// speed for each motor
 #define MAXSTEER 40		// maximum steering correction
-#define DT 50			// time step in ms, at least 2ms to be safe
+#define DT 20			// time step in ms, at least 2ms to be safe
 
 // Data for generating the characters used in load_custom_characters
 // and bargraph_sensors.  By reading levels[] starting at various
@@ -71,6 +71,7 @@ int main() {
 // Initialize everything
 void init() {
 	pololu_3pi_init_disable_emitter_pin(2000); // should be 500-3000usec
+	set_motors(0,0);
 	load_custom_characters();
 	clear(); // clear LCD
 	lcd_goto_xy(0, 0); // top left
@@ -139,21 +140,29 @@ void line_follow() {
 		if (now >= when) { // rollover every ~49 days
 			when = now + DT;
 
-			// Read Sensors
+			// Read Sensors, output ranges from 0 to 4000, always
 			long position = read_line(sensors, IR_EMITTERS_ON);
 
 			// Proportional - steer up to maximum speed
 			// position ranges from 0 to 4000. The most reliable range
-			// is 1000 to 3000. We adjust P to get us to MAXSTEER at
+			// is 1000 to 3000. We adjust p to get us to MAXSTEER at
 			// least by the time we hit the edge of this range.
-			long steer = (position * 40) / 1000 - 80;
-
-			// Limit the steering to the maximum +/- value
-			if (steer > MAXSTEER) steer = MAXSTEER;
-			if (steer < -MAXSTEER) steer = -MAXSTEER;
+			long const p = 50;
+			long steer = (position * p) / 1000 - 2*p;
 
 			set_motors(SPEED+steer, SPEED-steer);
 
+			if (steer < -5) {
+				left_led(1);
+				right_led(0);
+			} else if (steer > 5) {
+				left_led(0);
+				right_led(1);
+			} else {
+				left_led(1);
+				right_led(1);
+			}
+			
 			lcd_goto_xy(0,0);
 			print_long(position);
 			lcd_goto_xy(0,1);	
@@ -165,6 +174,8 @@ void line_follow() {
 
 	} // while
 	set_motors(0,0);
+	left_led(0);
+	right_led(0);
 	emitters_off();
 	wait_for_button_release(BUTTON_B);
 }

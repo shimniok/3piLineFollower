@@ -14,6 +14,8 @@
 #define MAXSTEER 40		// maximum steering correction
 #define DT 20			// time step in ms, at least 2ms to be safe
 
+#define abs(x) ((x < 0) ? -x : x)
+
 // Data for generating the characters used in load_custom_characters
 // and bargraph_sensors.  By reading levels[] starting at various
 // offsets, we can generate all of the 7 extra characters needed for a
@@ -140,26 +142,37 @@ void line_follow() {
 			when = now + DT;
 
 			// Read Sensors, output ranges from 0 to 4000, always
+			// If off the line, function returns either 0 or 4000
+			// LEFT = 4000
+			// RIGHT = 0
 			long position = read_line(sensors, IR_EMITTERS_ON);
 
-			// Proportional - steer up to maximum speed
-			// position ranges from 0 to 4000. The most reliable range
-			// is 1000 to 3000. We adjust p to get us to MAXSTEER at
-			// least by the time we hit the edge of this range.
-			long const p = 50;
-			long steer = (position * p) / 1000 - 2*p;
+			// Read_line returns 0 or 4000 if we're off the line.
+			// Also, if we're on the line, at least one sensor will
+			// read > 200.
+			int i;
+			char on_line = 0;
+			for (i=0; i < 5; i++) {
+				if (sensors[i] > 200) {
+					on_line = 1;
+				}
+			}
 
-			set_motors(SPEED+steer, SPEED-steer);
+			// The most reliable range is 1000 to 3000. So in our
+			// Proportional control, set p/d to give us MAXSTEER when
+			// outside this range
+			if (position > 3000) { position = 3000; }
+			if (position < 1000) { position = 1000; }
+			long p = 50; // proportional
+			long const d = 1000;
 
-			if (steer < -5) {
-				left_led(1);
-				right_led(0);
-			} else if (steer > 5) {
-				left_led(0);
-				right_led(1);
-			} else {
-				left_led(1);
-				right_led(1);
+			// change steering only if we're on the line
+			if (on_line) {
+				long steer = (position * p) / d - 100;
+				set_motors(SPEED+steer, SPEED-steer);
+
+				left_led(steer < -5);
+				right_led(steer > 5);
 			}
 
 			lcd_goto_xy(0,0);

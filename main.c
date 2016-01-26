@@ -157,6 +157,10 @@ void line_follow() {
 					on_line = 1;
 				}
 			}
+			// if we're off the line, force going straight.
+			if (!on_line) {
+				position = 2000;
+			}
 
 			// The most reliable range is 1000 to 3000. So in our
 			// Proportional control, set p/d to give us MAXSTEER when
@@ -166,14 +170,11 @@ void line_follow() {
 			long p = 50; // proportional
 			long const d = 1000;
 
-			// change steering only if we're on the line
-			if (on_line) {
-				long steer = (position * p) / d - 100;
-				set_motors(SPEED+steer, SPEED-steer);
+			long steer = (position * p) / d - 100;
+			set_motors(SPEED+steer, SPEED-steer);
 
-				left_led(steer < -5);
-				right_led(steer > 5);
-			}
+			left_led(steer < -5);
+			right_led(steer > 5);
 
 			lcd_goto_xy(0,0);
 			print_long(position);

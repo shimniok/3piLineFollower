@@ -10,9 +10,9 @@
 
 ////////////////////////////////////////////////////////////////////////
 // Configuration
-#define SPEED 40		// speed for each motor
-#define MAXSTEER 40		// maximum steering correction
-#define DT 20			// time step in ms, at least 2ms to be safe
+#define SPEED 80	    // speed for each motor
+#define MAXSTEER 60 	// maximum steering correction
+#define DT 5		     	// time step in ms, at least 2ms to be safe
 
 #define abs(x) ((x < 0) ? -x : x)
 
@@ -130,6 +130,7 @@ void init() {
 void line_follow() {
 	long now = 0;
 	long when;
+  static int steer = 0;
 
 	clear();
 	// do the run
@@ -162,15 +163,17 @@ void line_follow() {
 				position = 2000;
 			}
 
-			// The most reliable range is 1000 to 3000. So in our
-			// Proportional control, set p/d to give us MAXSTEER when
-			// outside this range
+			// Compute steering using proportional control
+			// The most reliable range is 1000 to 3000.
 			if (position > 3000) { position = 3000; }
 			if (position < 1000) { position = 1000; }
-			long p = 50; // proportional
-			long const d = 1000;
-
-			long steer = (position * p) / d - 100;
+			// For proportional control we use a linear equation to convert position
+			// (a positive-only number) to a positive or negative steering value.
+			// Slope: m == MAXSTEER, aka proportional constant
+			// y-intercept: b == -2*MAXSTEER
+			// This ensures maximum steering input at the maximum position values
+			// that we allow (1000..3000).
+			steer = (position*MAXSTEER)/1000 - 2*MAXSTEER;
 			set_motors(SPEED+steer, SPEED-steer);
 
 			left_led(steer < -5);

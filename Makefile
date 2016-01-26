@@ -24,7 +24,7 @@ CC = avr-gcc
 AVRDUDE = avrdude
 RM := rm -rf
 
-OBJS = $(patsubst %.c,%.o, $(SRCS))
+OBJS = $(SRCS:.c=.o)
 
 # Dependencies
 

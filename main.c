@@ -18,9 +18,9 @@
 // and bargraph_sensors.  By reading levels[] starting at various
 // offsets, we can generate all of the 7 extra characters needed for a
 // bargraph.  This is also stored in program space.
-const char levels[] PROGMEM = { 
-	0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 
-	0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111 
+const char levels[] PROGMEM = {
+	0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
+	0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111
 };
 
 // 10 levels of bar graph characters
@@ -40,13 +40,13 @@ unsigned char button;
 int main() {
 
 	init();
-	
+
 	while (1) {
 		// Display calibrated values as a bar graph.
 		while(!button_is_pressed(BUTTON_B)) {
 			// Read the sensor values and get the position measurement.
 			unsigned int position = read_line(sensors,IR_EMITTERS_ON);
-	 
+
 			// Display the position measurement, which will go from 0
 			// (when the leftmost sensor is over the line) to 4000 (when
 			// the rightmost sensor is over the line) on the 3pi, along
@@ -56,10 +56,10 @@ int main() {
 			print_long(position);
 			lcd_goto_xy(0,1);
 			bargraph_sensors(sensors);
-	 
+
 			delay_ms(100);
 		}
-		wait_for_button_release(BUTTON_B);		
+		wait_for_button_release(BUTTON_B);
 		delay_ms(200);
 
 		line_follow();
@@ -76,50 +76,49 @@ void init() {
 	clear(); // clear LCD
 	lcd_goto_xy(0, 0); // top left
 	print("3piLine");
-	
-    // Display battery voltage and wait for button press
-    while(!button_is_pressed(BUTTON_B))
-    {
-        int bat = read_battery_millivolts();
- 
-        clear();
-        print_long(bat);
-        print("mV");
-        lcd_goto_xy(0,1);
-        print("Press B");
- 
-        delay_ms(100);
-    }
-	
-   // Always wait for the button to be released so that 3pi doesn't
-    // start moving until your hand is away from it.
-    wait_for_button_release(BUTTON_B);
-    delay_ms(1000);
-    
-    int counter;
- 
-    // Auto-calibration: turn right and left while calibrating the
-    // sensors.
-    for (counter = 0; counter < 80; counter++) {
-		
-        if (counter < 20 || counter >= 60) {
-            set_motors(40,-40);
-        } else {
-            set_motors(-40,40);
+
+  // Display battery voltage and wait for button press
+  while(!button_is_pressed(BUTTON_B)) {
+    int bat = read_battery_millivolts();
+
+    clear();
+    print_long(bat);
+    print("mV");
+    lcd_goto_xy(0,1);
+    print("Press B");
+
+    delay_ms(100);
+  }
+
+	// Always wait for the button to be released so that 3pi doesn't
+  // start moving until your hand is away from it.
+  wait_for_button_release(BUTTON_B);
+  delay_ms(1000);
+
+  int counter;
+
+  // Auto-calibration: turn right and left while calibrating the
+  // sensors.
+  for (counter = 0; counter < 80; counter++) {
+
+    if (counter < 20 || counter >= 60) {
+      set_motors(40,-40);
+    } else {
+      set_motors(-40,40);
 		}
- 
-        // This function records a set of sensor readings and keeps
-        // track of the minimum and maximum values encountered.  The
-        // IR_EMITTERS_ON argument means that the IR LEDs will be
-        // turned on during the reading, which is usually what you
-        // want.
-        calibrate_line_sensors(IR_EMITTERS_ON);
- 
-        // Since our counter runs to 80, the total delay will be
-        // 80*20 = 1600 ms.
-        delay_ms(20);
-    }
-    set_motors(0,0);	
+
+    // This function records a set of sensor readings and keeps
+    // track of the minimum and maximum values encountered.  The
+    // IR_EMITTERS_ON argument means that the IR LEDs will be
+    // turned on during the reading, which is usually what you
+    // want.
+    calibrate_line_sensors(IR_EMITTERS_ON);
+
+    // Since our counter runs to 80, the total delay will be
+    // 80*20 = 1600 ms.
+    delay_ms(20);
+	}
+  set_motors(0,0);
 }
 
 
@@ -134,7 +133,7 @@ void line_follow() {
 	// do the run
 	time_reset(); // rollover every ~49 days
 	when = get_ms() + DT;
-	while(!button_is_pressed(BUTTON_B)) {	
+	while(!button_is_pressed(BUTTON_B)) {
 		now = get_ms();
 
 		if (now >= when) { // rollover every ~49 days
@@ -162,12 +161,12 @@ void line_follow() {
 				left_led(1);
 				right_led(1);
 			}
-			
+
 			lcd_goto_xy(0,0);
 			print_long(position);
-			lcd_goto_xy(0,1);	
+			lcd_goto_xy(0,1);
 			bargraph_sensors(sensors);
-			
+
 			button = get_single_debounced_button_press(ANY_BUTTON);
 			delay_ms(1); // ensure we don't run twice.
 		} // if
@@ -217,4 +216,3 @@ void load_custom_characters() {
 	lcd_load_custom_character(levels + 6, 5);
 	clear(); // the LCD must be cleared for the characters to take effect
 }
-
